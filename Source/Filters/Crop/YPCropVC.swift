@@ -139,19 +139,19 @@ class YPCropVC: UIViewController {
         if let video = self.video {
             print(video.url)
             let videoAsset = AVAsset.init(url: video.url)
-            let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            let url = supportDir?.appendingPathComponent("croppedVideo.mp4")
-            try? FileManager.default.removeItem(at: url!)
-            
-            videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url!) { (result) in
-                self.activityIndicator?.stopAnimating()
-                self.activityIndicator?.removeFromSuperview()
-                let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url!)
-                croppedVideo.url = url!
-                print(result)
-                self.didFinishVideoCropping?(croppedVideo)
+            if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: false, attributes: nil)
+                let url = supportDir.appendingPathComponent("croppedVideo.mp4")
+   
+                videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url) { (result) in
+                    self.activityIndicator?.stopAnimating()
+                    self.activityIndicator?.removeFromSuperview()
+                    let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url)
+                    croppedVideo.url = url
+                    print(result)
+                    self.didFinishVideoCropping?(croppedVideo)
+                }
             }
-            
         } else {
             if let cgImage = image.toCIImage()?.toCGImage(),
                 let imageRef = cgImage.cropping(to: scaledCropRect) {
