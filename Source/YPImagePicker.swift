@@ -34,7 +34,7 @@ open class YPImagePicker: UINavigationController {
     // This nifty little trick enables us to call the single version of the callbacks.
     // This keeps the backwards compatibility keeps the api as simple as possible.
     // Multiple selection becomes available as an opt-in.
-    private func didSelect(items: [YPMediaItem]) {
+    private func didSelect(items: [YPMediaItem], cropRect: CGRect?, assetId: String?) {
         _didFinishPicking?(items, false)
     }
     
@@ -80,11 +80,11 @@ override open func viewDidLoad() {
             // Multiple items flow
             if items.count > 1 {
                 if YPConfig.library.skipSelectionsGallery {
-                    self?.didSelect(items: items)
+                    self?.didSelect(items: items, cropRect: nil, assetId: nil)
                     return
                 } else {
                     let selectionsGalleryVC = YPSelectionsGalleryVC(items: items) { _, items in
-                        self?.didSelect(items: items)
+                        self?.didSelect(items: items, cropRect: nil, assetId: nil)
                     }
                     self?.pushViewController(selectionsGalleryVC, animated: true)
                     return
@@ -104,7 +104,7 @@ override open func viewDidLoad() {
                             YPPhotoSaver.trySaveImage(photo.image, inAlbumNamed: YPConfig.albumName)
                         }
                     }
-                    self?.didSelect(items: [mediaItem])
+                    self?.didSelect(items: [mediaItem], cropRect: nil, assetId: nil)
                 }
                 
                 func showCropVC(photo: YPMediaPhoto, completion: @escaping (_ aphoto: YPMediaPhoto) -> Void) {
@@ -134,11 +134,15 @@ override open func viewDidLoad() {
                     showCropVC(photo: photo, completion: completion)
                 }
             case .video(let video):
+                var crop: CGRect?
+                var phassetId: String?
                 func showCropVC(video: YPMediaVideo, completion: @escaping (_ aphoto: YPMediaVideo) -> Void) {
+                    phassetId = video.asset?.localIdentifier ?? ""
                     if case let YPCropType.rectangle(ratio) = YPConfig.showsCrop {
                         let cropVC = YPCropVC(video: video, ratio: ratio)
                         
-                        cropVC.didFinishVideoCropping = { croppedVideo in
+                        cropVC.didFinishVideoCropping = { croppedVideo, cropRect in
+                            crop = cropRect
                             completion(croppedVideo)
                         }
                         self?.pushViewController(cropVC, animated: true)
@@ -152,11 +156,11 @@ override open func viewDidLoad() {
                         let videoFiltersVC = YPVideoFiltersVC.initWith(video: croppedVideo,
                                                                        isFromSelectionVC: false)
                         videoFiltersVC.didSave = { [weak self] outputMedia in
-                            self?.didSelect(items: [outputMedia])
+                            self?.didSelect(items: [outputMedia], cropRect: crop, assetId: phassetId)
                         }
                         self?.pushViewController(videoFiltersVC, animated: true)
                     } else {
-                        self?.didSelect(items: [YPMediaItem.video(v: croppedVideo)])
+                        self?.didSelect(items: [YPMediaItem.video(v: croppedVideo)], cropRect: crop, assetId: phassetId)
                     }
                 }
                 showCropVC(video: video, completion: completion)

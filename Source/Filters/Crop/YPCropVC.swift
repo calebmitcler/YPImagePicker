@@ -17,7 +17,7 @@ public enum YPCropType {
 class YPCropVC: UIViewController {
     
     public var didFinishCropping: ((UIImage) -> Void)?
-    public var didFinishVideoCropping: ((YPMediaVideo) -> Void)?
+    public var didFinishVideoCropping: ((YPMediaVideo, CGRect) -> Void)?
     override var prefersStatusBarHidden: Bool { return YPConfig.hidesStatusBar }
     var activityIndicator: UIActivityIndicatorView?
     private let originalImage: UIImage
@@ -149,7 +149,7 @@ class YPCropVC: UIViewController {
                     let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url)
                     croppedVideo.url = url
                     print(result)
-                    self.didFinishVideoCropping?(croppedVideo)
+                    self.didFinishVideoCropping?(croppedVideo, scaledCropRect)
                 }
             }
         } else {
