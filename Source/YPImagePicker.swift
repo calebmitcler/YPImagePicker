@@ -21,8 +21,8 @@ open class YPImagePicker: UINavigationController {
         return .portrait
     }
     
-    private var _didFinishPicking: (([YPMediaItem], Bool) -> Void)?
-    public func didFinishPicking(completion: @escaping (_ items: [YPMediaItem], _ cancelled: Bool) -> Void) {
+    private var _didFinishPicking: (([YPMediaItem], CGRect?, String?, Bool) -> Void)?
+    public func didFinishPicking(completion: @escaping (_ items: [YPMediaItem], _ cropRect: CGRect?, _ assetId: String?, _ cancelled: Bool) -> Void) {
         _didFinishPicking = completion
     }
     public weak var imagePickerDelegate: YPImagePickerDelegate?
@@ -35,7 +35,7 @@ open class YPImagePicker: UINavigationController {
     // This keeps the backwards compatibility keeps the api as simple as possible.
     // Multiple selection becomes available as an opt-in.
     private func didSelect(items: [YPMediaItem], cropRect: CGRect?, assetId: String?) {
-        _didFinishPicking?(items, false)
+        _didFinishPicking?(items, cropRect, assetId, false)
     }
     
     let loadingView = YPLoadingView()
@@ -63,7 +63,7 @@ open class YPImagePicker: UINavigationController {
 override open func viewDidLoad() {
         super.viewDidLoad()
         picker.didClose = { [weak self] in
-            self?._didFinishPicking?([], true)
+            self?._didFinishPicking?([], nil, nil, true)
         }
         viewControllers = [picker]
         setupLoadingView()
@@ -169,7 +169,7 @@ override open func viewDidLoad() {
     }
     
     deinit {
-        print("Picker deinited 👍")
+        print("Piclsker deinited 👍")
     }
     
     private func setupLoadingView() {

@@ -192,7 +192,7 @@ class ExampleViewController: UIViewController {
         // YPImagePickerConfiguration.shared.wordings.libraryTitle = "Gallery2"
 
         /* Multiple media implementation */
-        picker.didFinishPicking { [unowned picker] items, cancelled in
+        picker.didFinishPicking { [unowned picker] items, cropRect, assetId, cancelled in
 
             if cancelled {
                 print("Picker was canceled")
