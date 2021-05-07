@@ -45,7 +45,8 @@ public class YPVideoFiltersVC: UIViewController, IsMediaFilterVC {
 
     override public func viewDidLoad() {
         super.viewDidLoad()
-
+        trimBottomItem.isHidden = true
+        coverBottomItem.isHidden = true
         view.backgroundColor = YPConfig.colors.filterBackgroundColor
         trimmerView.mainColor = YPConfig.colors.trimmerMainColor
         trimmerView.handleColor = YPConfig.colors.trimmerHandleColor

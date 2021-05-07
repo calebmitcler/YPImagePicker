@@ -241,21 +241,23 @@ extension YPAssetZoomableView: UIScrollViewDelegate {
     }
     
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        myDelegate?.ypAssetZoomableViewScrollViewDidZoom()
-        
-        centerAssetView()
+        fitImage(false, animated: true)
+//        myDelegate?.ypAssetZoomableViewScrollViewDidZoom()
+//
+//        centerAssetView()
     }
     
     func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
-        guard let view = view, view == photoImageView || view == videoView else { return }
-        
-        // prevent to zoom out
-        if YPConfig.library.onlySquare && scale < squaredZoomScale {
-            self.fitImage(true, animated: true)
-        }
-        
-        myDelegate?.ypAssetZoomableViewScrollViewDidEndZooming()
-        cropAreaDidChange()
+        fitImage(false, animated: true)
+//        guard let view = view, view == photoImageView || view == videoView else { return }
+//
+//        // prevent to zoom out
+//        if YPConfig.library.onlySquare && scale < squaredZoomScale {
+//            self.fitImage(true, animated: true)
+//        }
+//
+//        myDelegate?.ypAssetZoomableViewScrollViewDidEndZooming()
+//        cropAreaDidChange()
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {

@@ -13,7 +13,7 @@ class YPCropView: UIView {
     
     let imageView = UIImageView()
     let topCurtain = UIView()
-    let cropArea = UIView()
+    var cropArea = UIView()
     let bottomCurtain = UIView()
     let toolbar = UIToolbar()
 
@@ -23,6 +23,14 @@ class YPCropView: UIView {
         setupLayout(with: image, ratio: ratio)
         applyStyle()
         imageView.image = image
+    }
+    
+    convenience init(video: YPMediaVideo, ratio: Double) {
+        self.init(frame: .zero)
+        setupViewHierarchy()
+        setupLayout(with: video.thumbnail, ratio: ratio)
+        applyStyle()
+        imageView.image = video.thumbnail
     }
     
     private func setupViewHierarchy() {
@@ -35,7 +43,10 @@ class YPCropView: UIView {
         )
     }
     
-    private func setupLayout(with image: UIImage, ratio: Double) {
+    func setupLayout(with image: UIImage, ratio: Double) {
+        cropArea.constraints.forEach { (constraint) in
+            cropArea.removeConstraint(constraint)
+        }
         layout(
             0,
             |topCurtain|,
@@ -70,9 +81,10 @@ class YPCropView: UIView {
         
         // Fit imageView to image's bounds
         imageView.Width == imageView.Height * CGFloat(imageRatio)
+        cropArea.setNeedsLayout()
     }
     
-    private func applyStyle() {
+    func applyStyle() {
         backgroundColor = .ypSystemBackground
         clipsToBounds = true
         imageView.style { i in

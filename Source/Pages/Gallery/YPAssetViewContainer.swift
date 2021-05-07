@@ -77,14 +77,14 @@ class YPAssetViewContainer: UIView {
         curtain.backgroundColor = UIColor.ypLabel.withAlphaComponent(0.7)
         curtain.alpha = 0
         
-        if !onlySquare {
-            // Crop Button
-            squareCropButton.setImage(YPConfig.icons.cropIcon, for: .normal)
-            sv(squareCropButton)
-            squareCropButton.size(42)
-            |-15-squareCropButton
-            squareCropButton.Bottom == zoomableView!.Bottom - 15
-        }
+//        if !onlySquare {
+//            // Crop Button
+//            squareCropButton.setImage(YPConfig.icons.cropIcon, for: .normal)
+//            sv(squareCropButton)
+//            squareCropButton.size(42)
+//            |-15-squareCropButton
+//            squareCropButton.Bottom == zoomableView!.Bottom - 15
+//        }
         
         // Multiple selection button
         sv(multipleSelectionButton)
@@ -116,7 +116,7 @@ class YPAssetViewContainer: UIView {
         }
         
         let shouldFit = YPConfig.library.onlySquare ? true : shouldCropToSquare
-        zoomableView?.fitImage(shouldFit)
+        zoomableView?.fitImage(false)
         zoomableView?.layoutSubviews()
     }
     

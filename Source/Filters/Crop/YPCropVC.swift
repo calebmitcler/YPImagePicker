@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import AVFoundation
 
 public enum YPCropType {
     case none
@@ -16,14 +17,16 @@ public enum YPCropType {
 class YPCropVC: UIViewController {
     
     public var didFinishCropping: ((UIImage) -> Void)?
-    
+    public var didFinishVideoCropping: ((YPMediaVideo) -> Void)?
     override var prefersStatusBarHidden: Bool { return YPConfig.hidesStatusBar }
-    
+    var activityIndicator: UIActivityIndicatorView?
     private let originalImage: UIImage
     private let pinchGR = UIPinchGestureRecognizer()
     private let panGR = UIPanGestureRecognizer()
-    
-    private let v: YPCropView
+    var video: YPMediaVideo?
+    var v: YPCropView
+    var ratio = 1.0
+    var maxZoom: CGFloat = 3.0
     override func loadView() { view = v }
     
     required init(image: UIImage, ratio: Double) {
@@ -31,6 +34,15 @@ class YPCropVC: UIViewController {
         originalImage = image
         super.init(nibName: nil, bundle: nil)
         self.title = YPConfig.wordings.crop
+    }
+    
+    init(video: YPMediaVideo, ratio: Double) {
+        originalImage = video.thumbnail
+        self.video = video
+        self.ratio = ratio
+        self.maxZoom = 1.0
+        self.v = YPCropView.init(video: video, ratio: ratio)
+        super.init(nibName: nil, bundle: nil)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -59,7 +71,33 @@ class YPCropVC: UIViewController {
                                            action: #selector(done))
         saveButton.setFont(font: YPConfig.fonts.rightBarButtonFont, forState: .normal)
         saveButton.tintColor = .ypLabel
-        v.toolbar.items = [cancelButton, flexibleSpace, saveButton]
+        let rotateButton = UIBarButtonItem(title: "Rotate",
+                                           style: .plain,
+                                           target: self,
+                                           action: #selector(rotate))
+        rotateButton.setFont(font: YPConfig.fonts.rightBarButtonFont, forState: .normal)
+        rotateButton.tintColor = .ypLabel
+        
+        v.toolbar.items = [cancelButton, flexibleSpace, rotateButton, flexibleSpace,  saveButton]
+    }
+    
+    @objc func rotate() {
+        if self.ratio > 1.0 {
+            self.ratio = 0.7142857
+        } else {
+            self.ratio = 1.4
+        }
+        if self.video != nil {
+            self.v = YPCropView.init(video: self.video!, ratio: self.ratio)
+        } else {
+            self.v = YPCropView.init(image: self.originalImage, ratio: self.ratio)
+        }
+        
+        self.view = v
+        self.view.setNeedsLayout()
+        setupToolbar()
+        setupGestureRecognizers()
+        
     }
     
     func setupGestureRecognizers() {
@@ -84,7 +122,10 @@ class YPCropVC: UIViewController {
         guard let image = v.imageView.image else {
             return
         }
-        
+        self.activityIndicator = UIActivityIndicatorView.init(style: .whiteLarge)
+        self.activityIndicator?.frame = CGRect.init(x: (self.view.frame.width / 2.0) - 25.0, y: (self.view.frame.height / 2.0) - 25.0, width: 50.0, height: 50.0)
+        self.view.addSubview(self.activityIndicator!)
+        self.activityIndicator?.startAnimating()
         let xCrop = v.cropArea.frame.minX - v.imageView.frame.minX
         let yCrop = v.cropArea.frame.minY - v.imageView.frame.minY
         let widthCrop = v.cropArea.frame.width
@@ -94,12 +135,32 @@ class YPCropVC: UIViewController {
                                     y: yCrop * scaleRatio,
                                     width: widthCrop * scaleRatio,
                                     height: heightCrop * scaleRatio)
-        if let cgImage = image.toCIImage()?.toCGImage(),
-            let imageRef = cgImage.cropping(to: scaledCropRect) {
-            let croppedImage = UIImage(cgImage: imageRef)
-            didFinishCropping?(croppedImage)
+        
+        if let video = self.video {
+            print(video.url)
+            let videoAsset = AVAsset.init(url: video.url)
+            let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            let url = supportDir?.appendingPathComponent("croppedVideo.mp4")
+            try? FileManager.default.removeItem(at: url!)
+            
+            videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url!) { (result) in
+                self.activityIndicator?.stopAnimating()
+                self.activityIndicator?.removeFromSuperview()
+                let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url!)
+                croppedVideo.url = url!
+                print(result)
+                self.didFinishVideoCropping?(croppedVideo)
+            }
+            
+        } else {
+            if let cgImage = image.toCIImage()?.toCGImage(),
+                let imageRef = cgImage.cropping(to: scaledCropRect) {
+                let croppedImage = UIImage(cgImage: imageRef)
+                didFinishCropping?(croppedImage)
+            }
         }
     }
+    
 }
 
 extension YPCropVC: UIGestureRecognizerDelegate {
@@ -130,7 +191,7 @@ extension YPCropVC: UIGestureRecognizerDelegate {
     private func pinchGestureEnded() {
         var transform = v.imageView.transform
         let kMinZoomLevel: CGFloat = 1.0
-        let kMaxZoomLevel: CGFloat = 3.0
+        let kMaxZoomLevel: CGFloat = maxZoom
         var wentOutOfAllowedBounds = false
         
         // Prevent zooming out too much
@@ -219,3 +280,115 @@ extension YPCropVC: UIGestureRecognizerDelegate {
         return true
     }
 }
+
+extension AVAsset {
+    
+    func cropVideoTrack(at index: Int, cropRect: CGRect, outputURL: URL, completion: @escaping (Result<Void, Swift.Error>) -> Void) {
+        
+        enum Orientation {
+            case up, down, right, left
+        }
+        
+        func orientation(for track: AVAssetTrack) -> Orientation {
+            let t = track.preferredTransform
+            
+            if(t.a == 0 && t.b == 1.0 && t.c == -1.0 && t.d == 0) {             // Portrait
+                return .up
+            } else if(t.a == 0 && t.b == -1.0 && t.c == 1.0 && t.d == 0) {      // PortraitUpsideDown
+                return .down
+            } else if(t.a == 1.0 && t.b == 0 && t.c == 0 && t.d == 1.0) {       // LandscapeRight
+                return .right
+            } else if(t.a == -1.0 && t.b == 0 && t.c == 0 && t.d == -1.0) {     // LandscapeLeft
+                return .left
+            } else {
+                return .up
+            }
+        }
+        
+        let videoTrack = tracks(withMediaType: .video)[index]
+        let originalSize = videoTrack.naturalSize
+        let trackOrientation = orientation(for: videoTrack)
+        let cropRectIsPortrait = cropRect.width <= cropRect.height
+        
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.renderSize = cropRect.size
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: 60, preferredTimescale: 30))
+        
+        let transformer = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
+        
+        var finalTransform: CGAffineTransform = CGAffineTransform.identity // setup a transform that grows the video, effectively causing a crop
+        finalTransform = finalTransform
+            .translatedBy(x: cropRect.origin.x * -1.0, y: cropRect.origin.y * -1.0)
+        
+        
+//        if trackOrientation == .up {
+//            if !cropRectIsPortrait { // center video rect vertically
+//                finalTransform = finalTransform
+//                    .translatedBy(x: originalSize.height, y: -(originalSize.width - cropRect.size.height) / 2)
+//                    .rotated(by: CGFloat(90.0.degreesToRadians))
+//            } else {
+//                finalTransform = finalTransform
+//                    .rotated(by: CGFloat(90.0.degreesToRadians))
+//                    .translatedBy(x: 0, y: -originalSize.height)
+//            }
+//
+//        } else if trackOrientation == .down {
+//            if !cropRectIsPortrait { // center video rect vertically (NOTE: did not test this case, since camera doesn't support .portraitUpsideDown in this app)
+//                finalTransform = finalTransform
+//                    .translatedBy(x: -originalSize.height, y: (originalSize.width - cropRect.size.height) / 2)
+//                    .rotated(by: CGFloat(-90.0.degreesToRadians))
+//            } else {
+//                finalTransform = finalTransform
+//                    .rotated(by: CGFloat(-90.0.degreesToRadians))
+//                    .translatedBy(x: -originalSize.width, y: -(originalSize.height - cropRect.size.height) / 2)
+//            }
+//
+//        } else if trackOrientation == .right {
+//            finalTransform = CGAffineTransform.identity
+//            if cropRectIsPortrait {
+//                finalTransform = finalTransform.translatedBy(x: -(originalSize.width - cropRect.size.width) / 2, y: 0)
+//
+//            } else {
+//                finalTransform = CGAffineTransform.identity
+//            }
+//
+//        } else if trackOrientation == .left {
+//            if cropRectIsPortrait { // center video rect horizontally
+//                finalTransform = finalTransform
+//                    .rotated(by: CGFloat(-180.0.degreesToRadians))
+//                    .translatedBy(x: -originalSize.width + (originalSize.width - cropRect.size.width) / 2, y: -originalSize.height)
+//            } else {
+//                finalTransform = finalTransform
+//                    .rotated(by: CGFloat(-180.0.degreesToRadians))
+//                    .translatedBy(x: -originalSize.width, y: -originalSize.height)
+//            }
+//        }
+        
+        transformer.setTransform(finalTransform, at: .zero)
+        instruction.layerInstructions = [transformer]
+        videoComposition.instructions = [instruction]
+        
+        let exporter = AVAssetExportSession(asset: self, presetName: AVAssetExportPresetHighestQuality)
+        exporter?.videoComposition = videoComposition
+        exporter?.outputURL = outputURL
+        exporter?.outputFileType=AVFileType.mp4
+        
+        exporter?.exportAsynchronously(completionHandler: { [weak exporter] in
+            DispatchQueue.main.async {
+                if let error = exporter?.error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(()))
+                }
+            }
+        })
+    }
+}
+extension FloatingPoint {
+    var degreesToRadians: Self { self * .pi / 180 }
+    var radiansToDegrees: Self { self * 180 / .pi }
+}
+

@@ -134,16 +134,32 @@ override open func viewDidLoad() {
                     showCropVC(photo: photo, completion: completion)
                 }
             case .video(let video):
-                if YPConfig.showsVideoTrimmer {
-                    let videoFiltersVC = YPVideoFiltersVC.initWith(video: video,
-                                                                   isFromSelectionVC: false)
-                    videoFiltersVC.didSave = { [weak self] outputMedia in
-                        self?.didSelect(items: [outputMedia])
+                func showCropVC(video: YPMediaVideo, completion: @escaping (_ aphoto: YPMediaVideo) -> Void) {
+                    if case let YPCropType.rectangle(ratio) = YPConfig.showsCrop {
+                        let cropVC = YPCropVC(video: video, ratio: ratio)
+                        
+                        cropVC.didFinishVideoCropping = { croppedVideo in
+                            completion(croppedVideo)
+                        }
+                        self?.pushViewController(cropVC, animated: true)
+                    } else {
+                        completion(video)
                     }
-                    self?.pushViewController(videoFiltersVC, animated: true)
-                } else {
-                    self?.didSelect(items: [YPMediaItem.video(v: video)])
                 }
+                
+                let completion = { (croppedVideo: YPMediaVideo) in
+                    if YPConfig.showsVideoTrimmer {
+                        let videoFiltersVC = YPVideoFiltersVC.initWith(video: croppedVideo,
+                                                                       isFromSelectionVC: false)
+                        videoFiltersVC.didSave = { [weak self] outputMedia in
+                            self?.didSelect(items: [outputMedia])
+                        }
+                        self?.pushViewController(videoFiltersVC, animated: true)
+                    } else {
+                        self?.didSelect(items: [YPMediaItem.video(v: croppedVideo)])
+                    }
+                }
+                showCropVC(video: video, completion: completion)
             }
         }
     }
