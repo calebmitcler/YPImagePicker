@@ -142,7 +142,7 @@ class YPCropVC: UIViewController {
             if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                 try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: false, attributes: nil)
                 let url = supportDir.appendingPathComponent("croppedVideo.mp4")
-   
+                try? FileManager.default.removeItem(at: url)
                 videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url) { (result) in
                     self.activityIndicator?.stopAnimating()
                     self.activityIndicator?.removeFromSuperview()
