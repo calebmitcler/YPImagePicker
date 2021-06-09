@@ -16,7 +16,7 @@ public enum YPCropType {
 
 class YPCropVC: UIViewController {
     
-    public var didFinishCropping: ((UIImage) -> Void)?
+    public var didFinishCropping: ((UIImage, CGRect?) -> Void)?
     public var didFinishVideoCropping: ((YPMediaVideo, CGRect) -> Void)?
     override var prefersStatusBarHidden: Bool { return YPConfig.hidesStatusBar }
     var activityIndicator: UIActivityIndicatorView?
@@ -83,9 +83,10 @@ class YPCropVC: UIViewController {
     
     @objc func rotate() {
         if self.ratio > 1.0 {
-            self.ratio = 0.7142857
+            self.ratio = 0.6666//0.7142857
+            
         } else {
-            self.ratio = 1.4
+            self.ratio = 1.5//1.4
         }
         if self.video != nil {
             self.v = YPCropView.init(video: self.video!, ratio: self.ratio)
@@ -144,6 +145,7 @@ class YPCropVC: UIViewController {
                 let url = supportDir.appendingPathComponent("croppedVideo.mp4")
                 try? FileManager.default.removeItem(at: url)
                 videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url) { (result) in
+
                     self.activityIndicator?.stopAnimating()
                     self.activityIndicator?.removeFromSuperview()
                     let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url)
@@ -156,7 +158,7 @@ class YPCropVC: UIViewController {
             if let cgImage = image.toCIImage()?.toCGImage(),
                 let imageRef = cgImage.cropping(to: scaledCropRect) {
                 let croppedImage = UIImage(cgImage: imageRef)
-                didFinishCropping?(croppedImage)
+                didFinishCropping?(croppedImage, scaledCropRect)
             }
         }
     }
@@ -391,4 +393,5 @@ extension FloatingPoint {
     var degreesToRadians: Self { self * .pi / 180 }
     var radiansToDegrees: Self { self * 180 / .pi }
 }
+
 
