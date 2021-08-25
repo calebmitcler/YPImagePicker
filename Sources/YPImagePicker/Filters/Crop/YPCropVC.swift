@@ -30,6 +30,7 @@ class YPCropVC: UIViewController {
     override func loadView() { view = v }
     
     required init(image: UIImage, ratio: Double) {
+        self.ratio = ratio
         v = YPCropView(image: image, ratio: ratio)
         originalImage = image
         super.init(nibName: nil, bundle: nil)
@@ -82,12 +83,9 @@ class YPCropVC: UIViewController {
     }
     
     @objc func rotate() {
-        if self.ratio > 1.0 {
-            self.ratio = 0.6666//0.7142857
-            
-        } else {
-            self.ratio = 1.5//1.4
-        }
+        let inverseRatio = 1.0 / self.ratio
+        self.ratio = inverseRatio
+        
         if self.video != nil {
             self.v = YPCropView.init(video: self.video!, ratio: self.ratio)
         } else {
