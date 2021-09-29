@@ -9,31 +9,68 @@
 import UIKit
 import CoreImage
 
-public typealias FilterApplierType = ((_ image: CIImage) -> CIImage?)
+public typealias FilterApplierType = ((_ image: CIImage, _ fileName: String) -> CIImage?)
 
 public struct YPFilter {
-    var name = ""
+    
     var applier: FilterApplierType?
+    public var folderName = ""
+    public var fileName = ""
+    
+    public var name = ""
+    public var width = 5.0
+    public var height = 7.0
+    
+    public var image: UIImage? {
+        let filePath = "templates/\(folderName)/\(Int(width))x\(Int(height))/\(fileName).png"
+        let imageUrl = Bundle.main.resourceURL?.appendingPathComponent(filePath)
+        return UIImage.init(contentsOfFile: imageUrl?.path ?? "")
+    }
     
     public init(name: String, coreImageFilterName: String) {
         self.name = name
-        self.applier = YPFilter.coreImageFilter(name: coreImageFilterName)
     }
     
-    public init(name: String, applier: FilterApplierType?) {
+    public init(name: String, width: Double, height: Double, applier: FilterApplierType?) {
+        let components = name.components(separatedBy: "/")
+        
+        let folderName = components[0]
+        let fileName = components[1]
+
+        self.folderName = folderName
+        self.fileName = fileName
+        
         self.name = name
         self.applier = applier
+        self.width = width
+        self.height = height
+    }
+    
+    public func inverse() -> YPFilter {
+        var ret = self
+        ret = YPFilter.init(name: name,  width: height, height: width, applier: applier)
+        return ret
     }
 }
 
 extension YPFilter {
-    public static func coreImageFilter(name: String) -> FilterApplierType {
-        return { (image: CIImage) -> CIImage? in
-            let filter = CIFilter(name: name)
-            filter?.setValue(image, forKey: kCIInputImageKey)
-            return filter?.outputImage!
+    public static func christmasFilter(ciImage: CIImage, filePath: String) -> CIImage? {
+        guard let imageUrl = Bundle.main.resourceURL?.appendingPathComponent(filePath),
+              let topImage = UIImage.init(contentsOfFile: imageUrl.path)
+        else { return nil}
+        
+        if let ciTopImage = topImage.toCIImage() {
+            return ciImage.mergeImage(overlay: ciTopImage)
         }
+        return nil
     }
+//    public static func coreImageFilter(name: String) -> FilterApplierType {
+//        return { (image: CIImage) -> CIImage? in
+//            let filter = CIFilter(name: name)
+//            filter?.setValue(image, forKey: kCIInputImageKey)
+//            return filter?.outputImage!
+//        }
+//    }
     
     public static func clarendonFilter(foregroundImage: CIImage) -> CIImage? {
         let backgroundImage = getColorImage(red: 127, green: 187, blue: 227, alpha: Int(255 * 0.2),

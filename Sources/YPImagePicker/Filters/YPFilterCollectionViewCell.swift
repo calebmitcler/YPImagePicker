@@ -7,8 +7,6 @@
 //
 
 import Stevia
-import UIKit
-import CoreGraphics
 
 class YPFilterCollectionViewCell: UICollectionViewCell {
     

@@ -21,7 +21,7 @@ open class YPImagePicker: UINavigationController {
         return .portrait
     }
     
-    private var _didFinishPicking: (([YPMediaItem], CGRect?, String?, Bool) -> Void)?
+    public var _didFinishPicking: (([YPMediaItem], CGRect?, String?, Bool) -> Void)?
     public func didFinishPicking(completion: @escaping (_ items: [YPMediaItem], _ cropRect: CGRect?, _ assetId: String?, _ cancelled: Bool) -> Void) {
         _didFinishPicking = completion
     }
@@ -34,12 +34,12 @@ open class YPImagePicker: UINavigationController {
     // This nifty little trick enables us to call the single version of the callbacks.
     // This keeps the backwards compatibility keeps the api as simple as possible.
     // Multiple selection becomes available as an opt-in.
-    private func didSelect(items: [YPMediaItem], cropRect: CGRect?, assetId: String?) {
+    public func didSelect(items: [YPMediaItem], cropRect: CGRect?, assetId: String?) {
         _didFinishPicking?(items, cropRect, assetId, false)
     }
     
-    let loadingView = YPLoadingView()
-    private let picker: YPPickerVC!
+    public let loadingView = YPLoadingView()
+    public let picker: YPPickerVC!
     
     /// Get a YPImagePicker instance with the default configuration.
     public convenience init() {
@@ -192,4 +192,5 @@ extension YPImagePicker: ImagePickerDelegate {
             ?? true
     }
 }
+
 

@@ -7,7 +7,6 @@
 //
 
 import Stevia
-import UIKit
 
 class YPGridView: UIView {
     

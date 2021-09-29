@@ -14,11 +14,11 @@ public enum YPCropType {
     case rectangle(ratio: Double)
 }
 
-class YPCropVC: UIViewController {
+open class YPCropVC: UIViewController {
     
     public var didFinishCropping: ((UIImage, CGRect?) -> Void)?
     public var didFinishVideoCropping: ((YPMediaVideo, CGRect) -> Void)?
-    override var prefersStatusBarHidden: Bool { return YPConfig.hidesStatusBar }
+    open override var prefersStatusBarHidden: Bool { return YPConfig.hidesStatusBar }
     var activityIndicator: UIActivityIndicatorView?
     private let originalImage: UIImage
     private let pinchGR = UIPinchGestureRecognizer()
@@ -27,9 +27,26 @@ class YPCropVC: UIViewController {
     var v: YPCropView
     var ratio = 1.0
     var maxZoom: CGFloat = 3.0
-    override func loadView() { view = v }
+    open override func loadView() { view = v }
+    var overlayImageView: UIImageView?
+    var selectedFilter: YPFilter?
     
-    required init(image: UIImage, ratio: Double) {
+    required public init(image: UIImage, ratio: Double, selectedFilter: YPFilter?) {
+        self.ratio = ratio
+        let imageRatio = image.size.width / image.size.height
+        if imageRatio > 1.0 {
+            self.ratio = 1.0 / ratio
+        }
+        v = YPCropView(image: image, ratio: self.ratio)
+        originalImage = image
+        super.init(nibName: nil, bundle: nil)
+        self.title = YPConfig.wordings.crop
+        if let filter = selectedFilter {
+            self.selectedFilter = filter
+        }
+    }
+    
+    required public init(image: UIImage, ratio: Double) {
         self.ratio = ratio
         v = YPCropView(image: image, ratio: ratio)
         originalImage = image
@@ -37,7 +54,31 @@ class YPCropVC: UIViewController {
         self.title = YPConfig.wordings.crop
     }
     
-    init(video: YPMediaVideo, ratio: Double) {
+    public init(video: YPMediaVideo, ratio: Double, selectedFilter: YPFilter?) {
+        originalImage = video.thumbnail
+        let inverseRatio = 1.0 / ratio
+        
+        let vidRatio = Double(video.thumbnail.size.width / video.thumbnail.size.height)
+        
+        let ratioDiff = abs(vidRatio - ratio)
+        let inverseRatioDiff = abs(vidRatio - inverseRatio)
+        self.video = video
+        self.ratio = (ratioDiff < inverseRatioDiff) ? ratio : inverseRatio
+        self.maxZoom = 1.0
+        self.v = YPCropView.init(video: video, ratio: self.ratio)
+        super.init(nibName: nil, bundle: nil)
+        if let filter = selectedFilter {
+            self.selectedFilter = filter
+            let filterRatio = filter.width / filter.height
+            if round(filterRatio * 10) != round(self.ratio * 10) {
+                self.selectedFilter = filter.inverse()
+            } else {
+                self.selectedFilter = filter
+            }
+        }
+    }
+    
+    public init(video: YPMediaVideo, ratio: Double) {
         originalImage = video.thumbnail
         self.video = video
         self.ratio = ratio
@@ -46,14 +87,25 @@ class YPCropVC: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
     
-    required init?(coder aDecoder: NSCoder) {
+    required public init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    override func viewDidLoad() {
+    open override func viewDidLoad() {
         super.viewDidLoad()
         setupToolbar()
         setupGestureRecognizers()
+    }
+    
+    open override func viewDidLayoutSubviews() {
+        overlayImageView?.removeFromSuperview()
+        if let overlayImage = self.selectedFilter?.image {
+            overlayImageView = UIImageView.init(frame: v.cropArea.frame)
+            overlayImageView?.image = overlayImage
+            if let overlayView = overlayImageView {
+                self.view.addSubview(overlayView)
+            }
+        }
     }
     
     func setupToolbar() {
@@ -83,20 +135,25 @@ class YPCropVC: UIViewController {
     }
     
     @objc func rotate() {
-        let inverseRatio = 1.0 / self.ratio
+        let inverseRatio = 1.0/self.ratio
         self.ratio = inverseRatio
-        
         if self.video != nil {
             self.v = YPCropView.init(video: self.video!, ratio: self.ratio)
         } else {
             self.v = YPCropView.init(image: self.originalImage, ratio: self.ratio)
         }
-        
+        let inverseFilter = self.selectedFilter?.inverse()
+        self.selectedFilter = inverseFilter
         self.view = v
+        
+        
+        if let overlayImage = self.selectedFilter?.image {
+//            overlayImageView = UIImageView.init(frame: v.cropArea.frame)
+            overlayImageView?.image = overlayImage
+        }
         self.view.setNeedsLayout()
         setupToolbar()
         setupGestureRecognizers()
-        
     }
     
     func setupGestureRecognizers() {
@@ -136,14 +193,13 @@ class YPCropVC: UIViewController {
                                     height: heightCrop * scaleRatio)
         
         if let video = self.video {
-            print(video.url)
             let videoAsset = AVAsset.init(url: video.url)
             if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                 try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: false, attributes: nil)
                 let url = supportDir.appendingPathComponent("croppedVideo.mp4")
                 try? FileManager.default.removeItem(at: url)
-                videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url) { (result) in
-
+                let overlayImage = self.selectedFilter?.image
+                videoAsset.cropVideoTrack(at: 0, cropRect: scaledCropRect, outputURL: url, overlayImage: overlayImage) { (result) in
                     self.activityIndicator?.stopAnimating()
                     self.activityIndicator?.removeFromSuperview()
                     let croppedVideo = YPMediaVideo.init(thumbnail: image, videoURL: url)
@@ -156,11 +212,17 @@ class YPCropVC: UIViewController {
             if let cgImage = image.toCIImage()?.toCGImage(),
                 let imageRef = cgImage.cropping(to: scaledCropRect) {
                 let croppedImage = UIImage(cgImage: imageRef)
-                didFinishCropping?(croppedImage, scaledCropRect)
+                if let overlayImage = self.selectedFilter?.image?.toCIImage() {
+                    let ciCroppedImage = croppedImage.toCIImage()
+                    if let mergedImage = ciCroppedImage?.mergeImage(overlay: overlayImage)?.toUIImage() {
+                        didFinishCropping?(mergedImage, scaledCropRect)
+                    }
+                } else {
+                    didFinishCropping?(croppedImage, scaledCropRect)
+                }
             }
         }
     }
-    
 }
 
 extension YPCropVC: UIGestureRecognizerDelegate {
@@ -275,15 +337,26 @@ extension YPCropVC: UIGestureRecognizerDelegate {
     }
     
     /// Allow both Pinching and Panning at the same time.
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 }
 
 extension AVAsset {
+    private func addImage(to layer: CALayer, size: CGSize, image: UIImage) {
+      let imageLayer = CALayer()
+      imageLayer.frame = CGRect(
+        x: 0,
+        y: 0,
+        width: size.width,
+        height: size.height)
+      
+      imageLayer.contents = image.cgImage
+      layer.addSublayer(imageLayer)
+    }
     
-    func cropVideoTrack(at index: Int, cropRect: CGRect, outputURL: URL, completion: @escaping (Result<Void, Swift.Error>) -> Void) {
+    func cropVideoTrack(at index: Int, cropRect: CGRect, outputURL: URL, overlayImage: UIImage?, completion: @escaping (Result<Void, Swift.Error>) -> Void) {
         
         enum Orientation {
             case up, down, right, left
@@ -366,6 +439,21 @@ extension AVAsset {
 //                    .translatedBy(x: -originalSize.width, y: -originalSize.height)
 //            }
 //        }
+        if let img = overlayImage {
+            let videoLayer = CALayer()
+            videoLayer.frame = CGRect(origin: .zero, size: cropRect.size)
+            let overlayLayer = CALayer()
+            overlayLayer.frame = CGRect(origin: .zero, size: cropRect.size)
+            addImage(to: overlayLayer, size: cropRect.size, image: img)
+            let outputLayer = CALayer()
+            outputLayer.frame = CGRect(origin: .zero, size: cropRect.size)
+            outputLayer.addSublayer(videoLayer)
+            outputLayer.addSublayer(overlayLayer)
+
+            videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+              postProcessingAsVideoLayer: videoLayer,
+              in: outputLayer)
+        }
         
         transformer.setTransform(finalTransform, at: .zero)
         instruction.layerInstructions = [transformer]
@@ -392,4 +480,24 @@ extension FloatingPoint {
     var radiansToDegrees: Self { self * 180 / .pi }
 }
 
+extension CIImage {
+    
+    func mergeImage(overlay: CIImage) -> CIImage? {
+        var ret: CIImage?
+        let bottomImage = self.toUIImage()
+        let topImage = overlay.toUIImage()
 
+        let size = bottomImage.size
+        UIGraphicsBeginImageContext(size)
+
+        let areaSize = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        bottomImage.draw(in: areaSize)
+
+        topImage.draw(in: areaSize, blendMode: .normal, alpha: 1.0)
+
+        let newImage:UIImage? = UIGraphicsGetImageFromCurrentImageContext()
+        ret = newImage?.toCIImage()
+        UIGraphicsEndImageContext()
+        return ret
+    }
+}

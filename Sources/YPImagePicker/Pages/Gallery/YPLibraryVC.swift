@@ -62,11 +62,13 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
 											  YPConfig.library.maxNumberOfItems)
         
         if let preselectedItems = YPConfig.library.preselectedItems, !preselectedItems.isEmpty {
+            
             selection = preselectedItems.compactMap { item -> YPLibrarySelection? in
                 var itemAsset: PHAsset?
                 switch item {
                 case .photo(let photo):
                     itemAsset = photo.asset
+                    changeAsset(itemAsset!)
                 case .video(let video):
                     itemAsset = video.asset
                 }
@@ -77,6 +79,7 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
                 // The negative index will be corrected in the collectionView:cellForItemAt:
                 return YPLibrarySelection(index: -1, assetIdentifier: asset.localIdentifier)
             }
+            
             v.assetViewContainer.setMultipleSelectionMode(on: multipleSelectionEnabled)
             v.collectionView.reloadData()
         }
