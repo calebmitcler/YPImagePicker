@@ -25,12 +25,12 @@ open class YPPhotoFiltersVC: UIViewController, IsMediaFilterVC, UIGestureRecogni
     public var inputPhoto: YPMediaPhoto!
     public var isFromSelectionVC = false
 
-    public var didSave: ((YPMediaItem) -> Void)?
+    open var didSave: ((YPMediaItem) -> Void)?
     public var didCancel: (() -> Void)?
 
-    fileprivate let filters: [YPFilter] = YPConfig.filters
+    open var filters: [YPFilter] = YPConfig.filters
 
-    fileprivate var selectedFilter: YPFilter?
+    public var selectedFilter: YPFilter?
     
     fileprivate var filteredThumbnailImagesArray: [UIImage] = []
     fileprivate var thumbnailImageForFiltering: CIImage? // Small image for creating filters thumbnails
@@ -54,7 +54,8 @@ open class YPPhotoFiltersVC: UIViewController, IsMediaFilterVC, UIGestureRecogni
             self.filteredThumbnailImagesArray = self.filters.map { filter -> UIImage in
                 if let applier = filter.applier,
                     let thumbnailImage = self.thumbnailImageForFiltering,
-                    let outputImage = applier(thumbnailImage) {
+                    let outputImage = applier(thumbnailImage, "templates/\(filter.folderName)/\(Int(filter.width))x\(Int(filter.height))/\(filter.fileName).png") {
+                    
                     return outputImage.toUIImage()
                 } else {
                     return self.inputPhoto.originalImage
@@ -101,7 +102,7 @@ open class YPPhotoFiltersVC: UIViewController, IsMediaFilterVC, UIGestureRecogni
     
     // MARK: Setup - ⚙️
     
-    fileprivate func setupRightBarButton() {
+    public func setupRightBarButton() {
         let rightBarButtonTitle = isFromSelectionVC ? YPConfig.wordings.done : YPConfig.wordings.next
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: rightBarButtonTitle,
                                                             style: .done,
@@ -145,7 +146,7 @@ open class YPPhotoFiltersVC: UIViewController, IsMediaFilterVC, UIGestureRecogni
     }
     
     @objc
-    func save() {
+    open func save() {
         guard let didSave = didSave else { return print("Don't have saveCallback") }
         self.navigationItem.rightBarButtonItem = YPLoaders.defaultLoader
 
@@ -153,7 +154,7 @@ open class YPPhotoFiltersVC: UIViewController, IsMediaFilterVC, UIGestureRecogni
             if let f = self.selectedFilter,
                 let applier = f.applier,
                 let ciImage = self.inputPhoto.originalImage.toCIImage(),
-                let modifiedFullSizeImage = applier(ciImage) {
+                let modifiedFullSizeImage = applier(ciImage, "templates/\(f.name)/\(Int(f.width))x\(Int(f.height)).png") {
                 self.inputPhoto.modifiedImage = modifiedFullSizeImage.toUIImage()
             } else {
                 self.inputPhoto.modifiedImage = nil
@@ -193,3 +194,4 @@ extension YPPhotoFiltersVC: UICollectionViewDelegate {
         self.v.imageView.image = currentlySelectedImageThumbnail
     }
 }
+
