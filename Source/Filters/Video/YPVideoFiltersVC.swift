@@ -28,7 +28,7 @@ public class YPVideoFiltersVC: UIViewController, IsMediaFilterVC {
     private var imageGenerator: AVAssetImageGenerator?
     private var isFromSelectionVC = false
     
-    var didSave: ((YPMediaItem) -> Void)?
+    public var didSave: ((YPMediaItem) -> Void)?
     var didCancel: (() -> Void)?
 
     /// Designated initializer
@@ -139,8 +139,8 @@ public class YPVideoFiltersVC: UIViewController, IsMediaFilterVC {
                     DispatchQueue.main.async {
                         if let coverImage = self?.coverImageView.image {
                             let resultVideo = YPMediaVideo(thumbnail: coverImage,
-														   videoURL: destinationURL,
-														   asset: self?.inputVideo.asset)
+                                                           videoURL: destinationURL,
+                                                           asset: self?.inputVideo.asset)
                             didSave(YPMediaItem.video(v: resultVideo))
                             self?.setupRightBarButtonItem()
                         } else {
@@ -276,3 +276,4 @@ extension YPVideoFiltersVC: ThumbSelectorViewDelegate {
         }
     }
 }
+
